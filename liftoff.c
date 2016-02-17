@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
     exit(1);
   if (argc == 1) {
     fprintf(stdout, "Usage: %s [PROGRAM] [[ARGUMENTS]]..\n", argv[0]);
+    fflush(stderr);
     exit(1);
   }
 
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
   if (unlikely(pid < 0)) {
     fprintf(stderr, "%s: failed to fork: %s\n",
 	    argv[0], strerror(errno));
+    fflush(stderr);
     exit(1);
   }
 
@@ -46,18 +48,23 @@ int main(int argc, char *argv[])
     execvp(argv[1], &argv[1]); /* does not return on success */
     fprintf(stderr, "%s: failed to execute %s: %s\n",
 	    argv[0], argv[1], strerror(errno));
+    fflush(stderr);
     exit(errno == ENOENT ? 127 : 126);    
   }
 
   if (waitpid(-1, &status, 0) == -1) {
     fprintf(stderr, "%s: failed to wait for child %d: %s\n",
 	    argv[0], pid, strerror(errno));
+    fflush(stderr);
+    exit(1);
   }
   gettimeofday(&stop, (struct timezone *) 0);
 
   /* restore signals.  */
   signal(SIGINT, irqsig);
   signal(SIGQUIT, quitsig);
+
+  fflush(stdout);
 
   exit(0);
 }

@@ -122,6 +122,7 @@ int main(int argc, char *argv[])
   struct rusage ru;
   int status;
   int ret;
+  int i;
 
   if (argc < 1)
     exit(1);
@@ -200,6 +201,10 @@ int main(int argc, char *argv[])
   fprintf(sout, "fs output ops:                %ld\n",    ru.ru_oublock);
   fprintf(sout, "voluntary context switches:   %ld\n",    ru.ru_nvcsw);
   fprintf(sout, "involuntary context switches: %ld\n",    ru.ru_nivcsw);
+  fprintf(sout, "command line:                ");
+  for (i=0; i<argc; ++i)
+    fprintf(sout, " %s", argv[i]);
+  fprintf(sout, "\n");
 
   fflush(sout);
   if (sout != stdout)

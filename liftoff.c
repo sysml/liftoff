@@ -1,3 +1,11 @@
+/*
+ * Liftoff is a program like time but specifically written for
+ * Linux. It prints process statistics with a higher granularity.
+ *
+ * Copyright 2016 NEC EUrope Ltd.
+ * Authors:
+ *    Simon Kuenzer <simon.kuenzer@neclab.eu>
+ */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif

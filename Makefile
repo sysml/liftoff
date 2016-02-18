@@ -1,7 +1,7 @@
 RM = rm -f
 CC = gcc
 LD = $(CC)
-CFLAGS+=-Wall -O3 -fdata-sections -ffunction-sections
+CFLAGS+=-Wall -Wextra -O3 -fdata-sections -ffunction-sections
 LDFLAGS+=-Wl,--gc-sections
 LDLIBS +=
 

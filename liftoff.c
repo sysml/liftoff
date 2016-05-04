@@ -201,6 +201,24 @@ int main(int argc, char *argv[])
   fprintf(sout, "fs output ops:                %ld\n",    ru.ru_oublock);
   fprintf(sout, "voluntary context switches:   %ld\n",    ru.ru_nvcsw);
   fprintf(sout, "involuntary context switches: %ld\n",    ru.ru_nivcsw);
+  if (WIFEXITED(status)) {
+    fprintf(sout, "exit code:                    %d\n",   WEXITSTATUS(status));
+  } else {
+    /* child terminated unexpectedly, figure out reason  */
+    if (WIFSIGNALED(status)) {
+      fprintf(sout, "exit code:                    <terminated by signal %d", WTERMSIG(status));
+    } else if (WIFSTOPPED(status)) {
+      fprintf(sout, "exit code:                    <terminated by delivery of signal %d", WSTOPSIG(status));
+    } else {
+      fprintf(sout, "exit code:                    <terminated by unknown reason");
+    }
+
+    if (WCOREDUMP(status)) {
+      fprintf(sout, " (coredump produced)>\n");
+    } else {
+      fprintf(sout, ">\n");
+    }
+  }
   fprintf(sout, "command line:                ");
   for (i=0; i<argc; ++i)
     fprintf(sout, " %s", argv[i]);

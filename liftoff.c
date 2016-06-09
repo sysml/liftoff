@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sched.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/wait.h>
@@ -136,11 +137,13 @@ int main(int argc, char *argv[])
   pid_t pid, caught;
   sighandler_t irqsig, quitsig;
   struct timeval start, elapsed;
+  struct tm start_tm;
   struct rusage ru;
   int status;
   int ret;
   int i;
   cpu_set_t *setp;
+  char strtime[256];
 
   if (argc < 1)
     exit(1);
@@ -230,6 +233,11 @@ int main(int argc, char *argv[])
     }
   }
 
+  localtime_r((time_t *) &start.tv_sec, &start_tm);
+  strftime(strtime, sizeof(strtime), "%Y-%m-%d %H:%M:%S", &start_tm);
+  fprintf(sout, "start time:                   %s.%06"PRIu64"\n",
+	  strtime,
+	  (uint64_t) start.tv_usec);
   fprintf(sout, "real execution time:          %"PRIu64".%06"PRIu64" s\n",
 	  (uint64_t) elapsed.tv_sec,
 	  (uint64_t) elapsed.tv_usec);

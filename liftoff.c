@@ -20,12 +20,14 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <signal.h>
+#include <sched.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 
+#define MAX_NUMCPUS 2048
 
 #define likely(x)   __builtin_expect(!(!(x)),1)
 #define unlikely(x) __builtin_expect(!(!(x)),0)
@@ -34,14 +36,16 @@
 struct opts {
   const char *sout_fpath;
   int sout_append;
+  int pin_cpu;
 };
 
-static const char *sopts = "h?Vo:a";
+static const char *sopts = "h?Vo:ac:";
 static struct option lopts[] = {
   {"help",	no_argument,		NULL,	'h'},
   {"version",	no_argument,		NULL,	'V'},
   {"out",	required_argument,	NULL,	'o'},
   {"append",	no_argument,		NULL,	'a'},
+  {"cpu",	required_argument,	NULL,	'c'},
   {NULL, 0, NULL, 0}
 };
 
@@ -60,6 +64,7 @@ static void usage(const char *progname)
   printf("  -o, --out [FILE]           write statistics to output FILE instead\n");
   printf("                             of standard out\n");
   printf("  -a, --append               append to output file (requires -o)\n");
+  printf("  -c, --cpu [ID]             pin program to CPU ID\n");
 }
 
 static int parseopts(int argc, char *argv[], struct opts *opts)
@@ -71,8 +76,10 @@ static int parseopts(int argc, char *argv[], struct opts *opts)
   char **argvopt;
   int opt, optidx;
   int ret;
+  int v;
 
   memset(opts, 0, sizeof(*opts));
+  opts->pin_cpu = -1;
 
   old_optind = optind;
   old_optopt = optopt;
@@ -93,6 +100,16 @@ static int parseopts(int argc, char *argv[], struct opts *opts)
       break;
     case 'a': /* append */
       opts->sout_append = 1;
+      break;
+    case 'c': /* cpu pin */
+      v = atoi(optarg);
+      if (v < 0) {
+        fprintf(stderr, "%s: CPU ID has to greater than or equal to 0\n", progname);
+        usage(progname);
+        ret = -EINVAL;
+        goto out;
+      }
+      opts->pin_cpu = v;
       break;
     default:
       fprintf(stderr, "%s: invalid option\n", progname);
@@ -123,6 +140,7 @@ int main(int argc, char *argv[])
   int status;
   int ret;
   int i;
+  cpu_set_t *setp;
 
   if (argc < 1)
     exit(1);
@@ -137,6 +155,33 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  /* retrieve current scheduling affinity */
+  setp = CPU_ALLOC(MAX_NUMCPUS);
+  if (!setp) {
+    fprintf(stderr, "%s: could not allocate CPU mask: %s\n",
+            progname, strerror(errno));
+    goto err_exit;
+  }
+  ret = sched_getaffinity(0, CPU_ALLOC_SIZE(MAX_NUMCPUS), setp);
+  if (ret < 0) {
+    fprintf(stderr, "%s: could not get scheduling affinity: %s\n",
+            progname, strerror(errno));
+    goto err_free_setp;
+  }
+
+  /* set new scheduling affinity */
+  if (opts.pin_cpu >= 0) {
+    CPU_ZERO_S(CPU_ALLOC_SIZE(MAX_NUMCPUS), setp);
+    CPU_SET_S(opts.pin_cpu, CPU_ALLOC_SIZE(MAX_NUMCPUS), setp);
+
+    ret = sched_setaffinity(0, CPU_ALLOC_SIZE(MAX_NUMCPUS), setp);
+    if (ret < 0) {
+      fprintf(stderr, "%s: could not set scheduling affinity: %s\n",
+              progname, strerror(errno));
+      goto err_free_setp;
+    }
+  }
+
   /* disable signal handler */
   irqsig  = signal(SIGINT, SIG_IGN);
   quitsig = signal(SIGQUIT, SIG_IGN);
@@ -148,21 +193,21 @@ int main(int argc, char *argv[])
   if (unlikely(pid < 0)) {
     fprintf(stderr, "%s: failed to fork: %s\n",
 	    progname, strerror(errno));
-    goto err_exit;
+    goto err_free_setp;
   }
   if (pid == 0) {
     /* child */
     execvp(argv[0], &argv[0]); /* does not return on success */
     fprintf(stderr, "%s: failed to execute %s: %s\n",
 	    progname, argv[0], strerror(errno));
-    goto err_exit;
+    goto err_free_setp;
   }
   /* wait until child closed */
   while ((caught = wait3(&status, 0, &ru)) != pid) {
     if (unlikely(caught == -1)) {
       fprintf(stderr, "%s: failed to wait for child %d: %s\n",
 	      progname, pid, strerror(errno));
-      goto err_exit;
+      goto err_free_setp;
     }
   }
 
@@ -194,6 +239,13 @@ int main(int argc, char *argv[])
   fprintf(sout, "system execution time:        %"PRIu64".%06"PRIu64" s\n",
 	  (uint64_t) ru.ru_stime.tv_sec,
 	  (uint64_t) ru.ru_stime.tv_usec);
+  fprintf(sout, "initial affinity set:         ");
+  for (i=0; i<MAX_NUMCPUS; ++i) {
+    if (CPU_ISSET(i, setp)) {
+      fprintf(sout, "%d ", i);
+    }
+  }
+  fprintf(sout, "\n");
   fprintf(sout, "maximum resident set size:    %ld kb\n", ru.ru_maxrss);
   fprintf(sout, "soft page faults:             %ld\n",    ru.ru_minflt);
   fprintf(sout, "hard page faults:             %ld\n",    ru.ru_majflt);
@@ -227,8 +279,11 @@ int main(int argc, char *argv[])
   fflush(sout);
   if (sout != stdout)
     fclose(sout);
+  CPU_FREE(setp);
   exit(0);
 
+err_free_setp:
+  CPU_FREE(setp);
  err_exit:
   fflush(stderr);
   exit(1);

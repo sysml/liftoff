@@ -38,14 +38,16 @@ struct opts {
   const char *sout_fpath;
   int sout_append;
   int pin_cpu;
+  int seconds;
 };
 
-static const char *sopts = "h?Vo:ac:";
+static const char *sopts = "h?Vo:asc:";
 static struct option lopts[] = {
   {"help",	no_argument,		NULL,	'h'},
   {"version",	no_argument,		NULL,	'V'},
   {"out",	required_argument,	NULL,	'o'},
   {"append",	no_argument,		NULL,	'a'},
+  {"seconds",	no_argument,		NULL,	's'},
   {"cpu",	required_argument,	NULL,	'c'},
   {NULL, 0, NULL, 0}
 };
@@ -65,6 +67,7 @@ static void usage(const char *progname)
   printf("  -o, --out [FILE]           write statistics to output FILE instead\n");
   printf("                             of standard out\n");
   printf("  -a, --append               append to output file (requires -o)\n");
+  printf("  -s, --seconds              show start time in seconds, too\n");
   printf("  -c, --cpu [ID]             pin program to CPU ID\n");
 }
 
@@ -101,6 +104,9 @@ static int parseopts(int argc, char *argv[], struct opts *opts)
       break;
     case 'a': /* append */
       opts->sout_append = 1;
+      break;
+    case 's': /* seconds */
+      opts->seconds = 1;
       break;
     case 'c': /* cpu pin */
       v = atoi(optarg);
@@ -233,20 +239,27 @@ int main(int argc, char *argv[])
     }
   }
 
-  localtime_r((time_t *) &start.tv_sec, &start_tm);
-  strftime(strtime, sizeof(strtime), "%Y-%m-%d %H:%M:%S", &start_tm);
-  fprintf(sout, "start time:                   %s.%06"PRIu64"\n",
-	  strtime,
-	  (uint64_t) start.tv_usec);
+  if (!opts.seconds) {
+    localtime_r((time_t *) &start.tv_sec, &start_tm);
+    strftime(strtime, sizeof(strtime), "%Y-%m-%d %H:%M:%S", &start_tm);
+    fprintf(sout, "start time:                   %s.%06"PRIu64"\n",
+            strtime,
+            (uint64_t) start.tv_usec);
+  } else {
+    fprintf(sout, "start time:                   %"PRIu64".%06"PRIu64" s\n",
+            (uint64_t) start.tv_sec,
+            (uint64_t) start.tv_usec);
+
+  }
   fprintf(sout, "real execution time:          %"PRIu64".%06"PRIu64" s\n",
-	  (uint64_t) elapsed.tv_sec,
-	  (uint64_t) elapsed.tv_usec);
+          (uint64_t) elapsed.tv_sec,
+          (uint64_t) elapsed.tv_usec);
   fprintf(sout, "user execution time:          %"PRIu64".%06"PRIu64" s\n",
-	  (uint64_t) ru.ru_utime.tv_sec,
-	  (uint64_t) ru.ru_utime.tv_usec);
+          (uint64_t) ru.ru_utime.tv_sec,
+          (uint64_t) ru.ru_utime.tv_usec);
   fprintf(sout, "system execution time:        %"PRIu64".%06"PRIu64" s\n",
-	  (uint64_t) ru.ru_stime.tv_sec,
-	  (uint64_t) ru.ru_stime.tv_usec);
+          (uint64_t) ru.ru_stime.tv_sec,
+          (uint64_t) ru.ru_stime.tv_usec);
   fprintf(sout, "initial affinity set:         ");
   for (i=0; i<MAX_NUMCPUS; ++i) {
     if (CPU_ISSET(i, setp)) {

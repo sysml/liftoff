@@ -7,16 +7,20 @@ a higher granularity. Additionally it prints the ressource
 usage observed by the kernel. This output can be redirected to
 an output file.
 
+ * start time
  * real execution time
  * user execution time
  * system execution time
+ * initial scheduler affinity set
  * maximum resident set size
  * soft page faults
  * hard page faults
- * fs input ops
- * fs output ops
+ * file input operations
+ * file output operations
  * voluntary context switches
  * involuntary context switches
+ * exit code
+ * command line
 
 Example
 -------
@@ -24,16 +28,18 @@ Example
 ```sh
 $ liftoff -- echo "Hello world!"
 Hello world!
-real execution time:          0.003334 s
+start time:                   2016-06-09 16:29:39.713507
+real execution time:          0.001824 s
 user execution time:          0.000000 s
 system execution time:        0.000000 s
-maximum resident set size:    2092 kb
-soft page faults:             80
+initial affinity set:         0 1 2 3 
+maximum resident set size:    2104 kb
+soft page faults:             82
 hard page faults:             0
 fs input ops:                 0
 fs output ops:                0
-voluntary context switches:   6
-involuntary context switches: 3
+voluntary context switches:   18
+involuntary context switches: 1
 exit code:                    0
 command line:                 echo Hello world!
 ```

@@ -288,10 +288,12 @@ int main(int argc, char *argv[])
     /* child terminated unexpectedly, figure out reason  */
     if (WIFSIGNALED(status)) {
       fprintf(sout, "exit code:                    <terminated by signal %d", WTERMSIG(status));
+      exitcode = -1;
     } else if (WIFSTOPPED(status)) {
       fprintf(sout, "exit code:                    <terminated by delivery of signal %d", WSTOPSIG(status));
+      exitcode = -1;
     } else {
-      fprintf(sout, "exit code:                    <terminated by unknown reason");
+      fprintf(sout, "exit code:                    0");
     }
 
     if (WCOREDUMP(status)) {
@@ -299,8 +301,6 @@ int main(int argc, char *argv[])
     } else {
       fprintf(sout, ">\n");
     }
-
-    exitcode = -1; /* set -1 one for these cases */
   }
   fprintf(sout, "command line:                ");
   for (i=0; i<argc; ++i)

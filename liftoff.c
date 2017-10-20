@@ -35,16 +35,18 @@
 #define sync()      __sync_synchronize()
 
 struct opts {
+  int exitcode;
   const char *sout_fpath;
   int sout_append;
   int pin_cpu;
   int seconds;
 };
 
-static const char *sopts = "h?Vo:asc:";
+static const char *sopts = "h?Veo:asc:";
 static struct option lopts[] = {
   {"help",	no_argument,		NULL,	'h'},
   {"version",	no_argument,		NULL,	'V'},
+  {"exitcode",	no_argument,		NULL,	'e'},
   {"out",	required_argument,	NULL,	'o'},
   {"append",	no_argument,		NULL,	'a'},
   {"seconds",	no_argument,		NULL,	's'},
@@ -64,6 +66,7 @@ static void usage(const char *progname)
   printf("Mandatory arguments to long options are mandatory for short options too.\n");
   printf("  -h, --help                 display this help and exit\n");
   printf("  -V, --version              display program version and exit\n");
+  printf("  -e, --exitcode             return with exit code of PROGRAM\n");
   printf("  -o, --out [FILE]           write statistics to output FILE instead\n");
   printf("                             of standard out\n");
   printf("  -a, --append               append to output file (requires -o)\n");
@@ -99,6 +102,9 @@ static int parseopts(int argc, char *argv[], struct opts *opts)
     case 'V': /* version */
       version();
       exit(0);
+    case 'e': /* pass-through exit code */
+      opts->exitcode = 1;
+      break;
     case 'o': /* output */
       opts->sout_fpath = optarg;
       break;
@@ -147,6 +153,7 @@ int main(int argc, char *argv[])
   struct rusage ru;
   int status;
   int ret;
+  int exitcode;
   int i;
   cpu_set_t *setp;
   char strtime[256];
@@ -274,8 +281,9 @@ int main(int argc, char *argv[])
   fprintf(sout, "fs output ops:                %ld\n",    ru.ru_oublock);
   fprintf(sout, "voluntary context switches:   %ld\n",    ru.ru_nvcsw);
   fprintf(sout, "involuntary context switches: %ld\n",    ru.ru_nivcsw);
-  if (WIFEXITED(status)) {
-    fprintf(sout, "exit code:                    %d\n",   WEXITSTATUS(status));
+  exitcode = WEXITSTATUS(status);
+  if (exitcode) {
+    fprintf(sout, "exit code:                    %d\n",   exitcode);
   } else {
     /* child terminated unexpectedly, figure out reason  */
     if (WIFSIGNALED(status)) {
@@ -291,6 +299,8 @@ int main(int argc, char *argv[])
     } else {
       fprintf(sout, ">\n");
     }
+
+    exitcode = -1; /* set -1 one for these cases */
   }
   fprintf(sout, "command line:                ");
   for (i=0; i<argc; ++i)
@@ -301,6 +311,8 @@ int main(int argc, char *argv[])
   if (sout != stdout)
     fclose(sout);
   CPU_FREE(setp);
+  if (opts.exitcode)
+    exit(exitcode);
   exit(0);
 
 err_free_setp:

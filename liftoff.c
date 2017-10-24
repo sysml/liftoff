@@ -6,6 +6,7 @@
  * Authors:
  *    Simon Kuenzer <simon.kuenzer@neclab.eu>
  */
+
 #define PROGNAME "liftoff"
 
 #ifndef _GNU_SOURCE
@@ -240,7 +241,8 @@ int main(int argc, char *argv[])
   if (opts.sout_fpath) {
     sout = fopen(opts.sout_fpath, opts.sout_append ? "a" : "w");
     if (!sout) {
-      fprintf(stderr, "%s: could not open %s for writing, using standard output instead: %s\n",
+      fprintf(stderr, "%s: could not open %s for writing, "
+              "using standard output instead: %s\n",
 	      progname, opts.sout_fpath, strerror(errno));
       sout = stdout;
     }
@@ -273,6 +275,7 @@ int main(int argc, char *argv[])
       fprintf(sout, "%d ", i);
     }
   }
+  exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
   fprintf(sout, "\n");
   fprintf(sout, "maximum resident set size:    %ld kb\n", ru.ru_maxrss);
   fprintf(sout, "soft page faults:             %ld\n",    ru.ru_minflt);
@@ -281,27 +284,16 @@ int main(int argc, char *argv[])
   fprintf(sout, "fs output ops:                %ld\n",    ru.ru_oublock);
   fprintf(sout, "voluntary context switches:   %ld\n",    ru.ru_nvcsw);
   fprintf(sout, "involuntary context switches: %ld\n",    ru.ru_nivcsw);
-  exitcode = WEXITSTATUS(status);
-  if (exitcode) {
-    fprintf(sout, "exit code:                    %d\n",   exitcode);
-  } else {
-    /* child terminated unexpectedly, figure out reason  */
-    if (WIFSIGNALED(status)) {
-      fprintf(sout, "exit code:                    <terminated by signal %d", WTERMSIG(status));
-      exitcode = -1;
-    } else if (WIFSTOPPED(status)) {
-      fprintf(sout, "exit code:                    <terminated by delivery of signal %d", WSTOPSIG(status));
-      exitcode = -1;
-    } else {
-      fprintf(sout, "exit code:                    0");
-    }
-
-    if (WCOREDUMP(status)) {
-      fprintf(sout, " (coredump produced)>\n");
-    } else {
-      fprintf(sout, ">\n");
-    }
-  }
+  fprintf(sout, "exit code:                    %d ",      exitcode);
+  if (!(WIFEXITED(status)))
+    fprintf(sout, "<crashed>");
+  if (WIFSIGNALED(status))
+    fprintf(sout, "<terminated by signal %d>", WTERMSIG(status));
+  if (WIFSTOPPED(status))
+    fprintf(sout, "<terminated by delivery of signal %d>", WSTOPSIG(status));
+  if (WCOREDUMP(status))
+    fprintf(sout, "<coredump>");
+  fprintf(sout, "\n");
   fprintf(sout, "command line:                ");
   for (i=0; i<argc; ++i)
     fprintf(sout, " %s", argv[i]);
@@ -317,7 +309,7 @@ int main(int argc, char *argv[])
 
 err_free_setp:
   CPU_FREE(setp);
- err_exit:
+err_exit:
   fflush(stderr);
   exit(1);
 }

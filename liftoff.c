@@ -318,7 +318,7 @@ int main(int argc, char *argv[])
   fprintf(sout, "involuntary context switches: %ld\n",    ru.ru_nivcsw);
   fprintf(sout, "exit code:                    %d ",      exitcode);
   if (!(WIFEXITED(status)))
-    fprintf(sout, "<crashed>");
+    fprintf(sout, "<abnormal exit>");
   if (WIFSIGNALED(status))
     fprintf(sout, "<terminated by signal %d>", WTERMSIG(status));
   if (WIFSTOPPED(status))

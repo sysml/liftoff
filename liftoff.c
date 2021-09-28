@@ -241,6 +241,11 @@ int main(int argc, char *argv[])
   }
   if (pid == 0) {
     /* child */
+
+    /* restore default signal handlers for child */
+    signal (SIGINT, SIG_DFL);
+    signal (SIGQUIT, SIG_DFL);
+
     execvp(argv[0], &argv[0]); /* does not return on success */
     fprintf(stderr, "%s: failed to execute %s: %s\n",
 	    progname, argv[0], strerror(errno));
